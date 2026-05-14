@@ -1,0 +1,14 @@
+*.db
+*.pyc
+__pycache__/
+.scraper_cache/
+data/pick_value_model.json
+data/player_valuation_model.json
+data/manual_imports/
+.env
+venv/
+.venv/
+dist/
+build/
+*.egg-info/
+.DS_Store

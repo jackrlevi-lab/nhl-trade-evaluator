@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NHL Trade Evaluator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #1c2128;
+      --border:    rgba(255,255,255,0.08);
+      --border2:   rgba(255,255,255,0.14);
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --blue:      #2d8cf0;
+      --blue-dim:  rgba(45,140,240,0.12);
+      --green:     #3fb950;
+      --green-dim: rgba(63,185,80,0.12);
+      --red:       #f85149;
+      --red-dim:   rgba(248,81,73,0.12);
+      --gold:      #d29922;
+      --gold-dim:  rgba(210,153,34,0.12);
+      --radius:    10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    .app { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    /* Header */
+    .header { text-align: center; margin-bottom: 2.5rem; }
+    .header h1 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 42px; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      background: linear-gradient(135deg, #e6edf3 0%, #8b949e 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .header p { color: var(--muted); font-size: 13px; margin-top: 6px; letter-spacing: 0.03em; }
+
+    /* Trade grid */
+    .trade-grid {
+      display: grid;
+      grid-template-columns: 1fr 56px 1fr;
+      gap: 0;
+      align-items: start;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Team panel */
+    .team-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .team-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .team-name-input {
+      background: transparent; border: none; outline: none;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 20px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text);
+      width: 70%;
+    }
+    .team-total {
+      font-size: 22px; font-weight: 600;
+      font-family: 'Barlow Condensed', sans-serif;
+      color: var(--blue);
+    }
+
+    /* Assets list */
+    .assets { padding: 10px; min-height: 180px; }
+    .asset-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      position: relative;
+      transition: border-color 0.15s;
+    }
+    .asset-card:hover { border-color: var(--border2); }
+    .asset-card.player { border-left: 3px solid var(--blue); }
+    .asset-card.pick   { border-left: 3px solid var(--green); }
+    .asset-card.loading { opacity: 0.5; }
+    .asset-card.error { border-left-color: var(--red); }
+
+    .asset-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .asset-name { font-weight: 600; font-size: 14px; color: var(--text); }
+    .asset-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .asset-value {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 20px; font-weight: 700;
+      color: var(--blue); min-width: 40px; text-align: right;
+    }
+    .asset-stats { display: flex; gap: 14px; margin-top: 7px; flex-wrap: wrap; }
+    .stat { font-size: 11px; color: var(--muted); }
+    .stat span { color: var(--text); font-weight: 500; }
+
+    .badge {
+      display: inline-block; font-size: 10px; padding: 2px 6px;
+      border-radius: 4px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-left: 5px; vertical-align: middle;
+    }
+    .badge-nmc  { background: var(--red-dim);   color: var(--red);  }
+    .badge-elc  { background: var(--green-dim); color: var(--green);}
+    .badge-team { background: var(--blue-dim);  color: var(--blue); }
+    .badge-over { background: var(--gold-dim);  color: var(--gold); }
+
+    .remove-btn {
+      position: absolute; top: 8px; right: 8px;
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 16px; line-height: 1;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .asset-card:hover .remove-btn { opacity: 1; }
+
+    /* Add asset row */
+    .add-row {
+      display: flex; gap: 6px; padding: 0 10px 10px;
+    }
+    .add-input {
+      flex: 1; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 10px; color: var(--text); font-size: 13px;
+      font-family: 'Inter', sans-serif; outline: none;
+      transition: border-color 0.15s;
+    }
+    .add-input:focus { border-color: var(--border2); }
+    .add-btn {
+      background: var(--blue-dim); border: 1px solid var(--blue);
+      border-radius: 8px; padding: 8px 14px; color: var(--blue);
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: 'Inter', sans-serif; white-space: nowrap;
+    }
+    .add-btn:hover { background: rgba(45,140,240,0.2); }
+    .add-btn.pick-btn {
+      background: var(--green-dim); border-color: var(--green);
+      color: var(--green);
+    }
+    .add-btn.pick-btn:hover { background: rgba(63,185,80,0.2); }
+
+    /* Arrow col */
+    .arrow-col { display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 72px; gap: 8px; }
+    .arrow-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--surface2); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: var(--muted);
+    }
+
+    /* Verdict panel */
+    .verdict {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+    }
+    .verdict-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 1rem;
+    }
+    .verdict-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 20px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .verdict-label.even   { color: var(--muted); }
+    .verdict-label.winner { color: var(--green);  }
+
+    /* Value bar */
+    .bar-section { margin-bottom: 1rem; }
+    .bar-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .bar-track {
+      width: 100%; height: 12px; background: var(--surface2);
+      border-radius: 6px; overflow: hidden; position: relative;
+      border: 1px solid var(--border);
+    }
+    .bar-fill-a {
+      position: absolute; left: 0; top: 0; height: 100%;
+      background: var(--blue); border-radius: 6px 0 0 6px;
+      transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+    }
+    .bar-fill-b {
+      position: absolute; right: 0; top: 0; height: 100%;
+      background: var(--green); border-radius: 0 6px 6px 0;
+      transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* Metrics row */
+    .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 1rem; }
+    .metric {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px; text-align: center;
+    }
+    .metric .mv { font-size: 20px; font-weight: 700; font-family: 'Barlow Condensed', sans-serif; color: var(--text); }
+    .metric .ml { font-size: 11px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* Scores */
+    .score-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .score-block { text-align: center; min-width: 80px; }
+    .score-block .sv { font-family: 'Barlow Condensed', sans-serif; font-size: 36px; font-weight: 700; line-height: 1; }
+    .score-block .sl { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .score-block.a .sv { color: var(--blue);  }
+    .score-block.b .sv { color: var(--green); }
+
+    /* Suggestions dropdown */
+    .search-wrap { position: relative; flex: 1; }
+    .suggestions {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: 8px; z-index: 10; overflow: hidden;
+    }
+    .suggestion-item {
+      padding: 8px 12px; cursor: pointer; font-size: 13px;
+      display: flex; justify-content: space-between;
+      transition: background 0.1s;
+    }
+    .suggestion-item:hover { background: var(--surface); }
+    .suggestion-item .s-team { font-size: 11px; color: var(--muted); }
+
+    .empty-state { text-align: center; color: var(--muted); font-size: 13px; padding: 2rem 0; }
+    .api-notice {
+      background: var(--gold-dim); border: 1px solid var(--gold);
+      border-radius: 8px; padding: 10px 14px; margin-bottom: 1.5rem;
+      font-size: 12px; color: var(--gold);
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>Trade Evaluator</h1>
+    <p>Player value above replacement · Contract efficiency · Age curve projection · Pick value model</p>
+  </div>
+
+  <div class="api-notice" id="apiNotice">
+    ⚠ Running in demo mode — connect to <code>http://localhost:8000</code> to use live data.
+    <a href="#" onclick="checkApi()" style="color:var(--gold);margin-left:8px;">Retry connection</a>
+  </div>
+
+  <div class="trade-grid">
+    <!-- Side A -->
+    <div class="team-panel" id="panelA">
+      <div class="team-header">
+        <input class="team-name-input" id="teamA" value="Team A" />
+        <div class="team-total" id="totalA">—</div>
+      </div>
+      <div class="assets" id="assetsA">
+        <div class="empty-state">Add players or picks below</div>
+      </div>
+      <div class="add-row">
+        <div class="search-wrap">
+          <input class="add-input" id="inputA" placeholder="Player name..." autocomplete="off" />
+          <div class="suggestions" id="suggestA" style="display:none;"></div>
+        </div>
+        <button class="add-btn" onclick="addPlayer('A')">+ Player</button>
+        <button class="add-btn pick-btn" onclick="promptPick('A')">+ Pick</button>
+      </div>
+    </div>
+
+    <!-- Arrow -->
+    <div class="arrow-col">
+      <div class="arrow-icon">⇄</div>
+    </div>
+
+    <!-- Side B -->
+    <div class="team-panel" id="panelB">
+      <div class="team-header">
+        <input class="team-name-input" id="teamB" value="Team B" />
+        <div class="team-total" id="totalB">—</div>
+      </div>
+      <div class="assets" id="assetsB">
+        <div class="empty-state">Add players or picks below</div>
+      </div>
+      <div class="add-row">
+        <div class="search-wrap">
+          <input class="add-input" id="inputB" placeholder="Player name..." autocomplete="off" />
+          <div class="suggestions" id="suggestB" style="display:none;"></div>
+        </div>
+        <button class="add-btn" onclick="addPlayer('B')">+ Player</button>
+        <button class="add-btn pick-btn" onclick="promptPick('B')">+ Pick</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Verdict -->
+  <div class="verdict" id="verdict" style="display:none;">
+    <div class="verdict-header">
+      <div class="verdict-label" id="verdictLabel">—</div>
+    </div>
+    <div class="score-row">
+      <div class="score-block a">
+        <div class="sv" id="scoreA">0.0</div>
+        <div class="sl" id="labelA">Team A</div>
+      </div>
+      <div style="flex:1; padding: 0 16px;">
+        <div class="bar-section">
+          <div class="bar-labels">
+            <span id="barLabelA">Team A</span>
+            <span id="barLabelB">Team B</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill-a" id="barA" style="width:0%"></div>
+            <div class="bar-fill-b" id="barB" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="score-block b">
+        <div class="sv" id="scoreB">0.0</div>
+        <div class="sl" id="labelB">Team B</div>
+      </div>
+    </div>
+    <div class="metrics-row">
+      <div class="metric"><div class="mv" id="mDiff">—</div><div class="ml">Value gap</div></div>
+      <div class="metric"><div class="mv" id="mWinNow">—</div><div class="ml">Win-now edge</div></div>
+      <div class="metric"><div class="mv" id="mFuture">—</div><div class="ml">Future edge</div></div>
+      <div class="metric"><div class="mv" id="mCap">—</div><div class="ml">Cap added</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let apiLive = false;
+
+// Demo data for when API is offline
+const DEMO_PLAYERS = {
+  'adam fox':      { player_name:'Adam Fox',      team:'NYR', position:'D', age:27, war_estimate:3.8, contract_efficiency:0.40, trade_value:8.4, peak_war_proj:4.1, age_curve_stage:'peak',       contract_note:'standard' },
+  'nathan mackinnon': { player_name:'Nathan MacKinnon', team:'COL', position:'C', age:28, war_estimate:6.1, contract_efficiency:0.70, trade_value:9.8, peak_war_proj:6.3, age_curve_stage:'peak', contract_note:'team_friendly' },
+  'cale makar':    { player_name:'Cale Makar',    team:'COL', position:'D', age:25, war_estimate:5.4, contract_efficiency:0.65, trade_value:9.6, peak_war_proj:5.9, age_curve_stage:'peak',       contract_note:'team_friendly' },
+  'auston matthews': { player_name:'Auston Matthews', team:'TOR', position:'C', age:26, war_estimate:5.2, contract_efficiency:0.49, trade_value:9.1, peak_war_proj:5.5, age_curve_stage:'peak',   contract_note:'standard' },
+  'quinn hughes':  { player_name:'Quinn Hughes',  team:'VAN', position:'D', age:24, war_estimate:4.8, contract_efficiency:0.60, trade_value:9.3, peak_war_proj:5.6, age_curve_stage:'ascending',  contract_note:'team_friendly' },
+  'quentin musty': { player_name:'Quentin Musty', team:'SJS', position:'L', age:20, war_estimate:0.8, contract_efficiency:2.10, trade_value:3.2, peak_war_proj:3.5, age_curve_stage:'ascending',  contract_note:'ELC' },
+};
+
+const state = { A: [], B: [] };
+
+async function checkApi() {
+  try {
+    const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(2000) });
+    if (r.ok) {
+      apiLive = true;
+      document.getElementById('apiNotice').style.display = 'none';
+    }
+  } catch { apiLive = false; }
+}
+checkApi();
+
+// -- Search autocomplete --
+function setupSearch(side) {
+  const input = document.getElementById(`input${side}`);
+  const box   = document.getElementById(`suggest${side}`);
+  let timer;
+
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 2) { box.style.display = 'none'; return; }
+    timer = setTimeout(() => fetchSuggestions(q, side), 250);
+  });
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') box.style.display = 'none';
+    if (e.key === 'Enter') addPlayer(side);
+  });
+
+  document.addEventListener('click', e => {
+    if (!input.contains(e.target) && !box.contains(e.target)) box.style.display = 'none';
+  });
+}
+
+async function fetchSuggestions(q, side) {
+  const box = document.getElementById(`suggest${side}`);
+  let results = [];
+
+  if (apiLive) {
+    try {
+      const r = await fetch(`${API}/players/search?q=${encodeURIComponent(q)}`);
+      results = await r.json();
+    } catch { apiLive = false; }
+  }
+
+  if (!results.length) {
+    // Demo fallback
+    results = Object.values(DEMO_PLAYERS)
+      .filter(p => p.player_name.toLowerCase().includes(q.toLowerCase()))
+      .map(p => ({ name: p.player_name, team: p.team }));
+  }
+
+  if (!results.length) { box.style.display = 'none'; return; }
+
+  box.innerHTML = results.map(r =>
+    `<div class="suggestion-item" onclick="selectPlayer('${side}','${r.name}')">
+      <span>${r.name}</span>
+      <span class="s-team">${r.team}</span>
+    </div>`
+  ).join('');
+  box.style.display = 'block';
+}
+
+function selectPlayer(side, name) {
+  document.getElementById(`input${side}`).value = name;
+  document.getElementById(`suggest${side}`).style.display = 'none';
+  addPlayer(side);
+}
+
+// -- Add assets --
+async function addPlayer(side) {
+  const input = document.getElementById(`input${side}`);
+  const name  = input.value.trim();
+  if (!name) return;
+
+  const id = Date.now();
+  addLoadingCard(side, id, name);
+  input.value = '';
+  document.getElementById(`suggest${side}`).style.display = 'none';
+
+  let data;
+  if (apiLive) {
+    try {
+      const r = await fetch(`${API}/players/${encodeURIComponent(name)}/value`);
+      if (!r.ok) throw new Error('not found');
+      data = await r.json();
+    } catch { data = null; }
+  }
+
+  // Demo fallback
+  if (!data) {
+    data = DEMO_PLAYERS[name.toLowerCase()] || null;
+  }
+
+  if (!data) {
+    updateCard(id, null, 'player', name);
+    return;
+  }
+
+  state[side].push({ type: 'player', id, data });
+  updateCard(id, data, 'player');
+  evaluateTrade();
+}
+
+function promptPick(side) {
+  const overall = prompt('Enter overall pick number (1-224):');
+  if (!overall || isNaN(overall)) return;
+  const n = parseInt(overall);
+  if (n < 1 || n > 224) { alert('Pick must be between 1 and 224'); return; }
+  addPickAsset(side, n);
+}
+
+async function addPickAsset(side, overall) {
+  const id = Date.now();
+  addLoadingCard(side, id, `Pick #${overall}`);
+
+  let data;
+  if (apiLive) {
+    try {
+      const r = await fetch(`${API}/picks/value?overall=${overall}`);
+      data = await r.json();
+    } catch { data = null; }
+  }
+
+  if (!data) {
+    // Client-side exponential decay fallback
+    const expectedWar  = Math.max(0, 6.5 * Math.exp(-0.022 * overall) + 0.25);
+    const pImpact      = Math.max(0, Math.min(1, 0.68 * Math.exp(-0.016 * overall) + 0.07));
+    const valueScore   = parseFloat(((expectedWar / 6.75) * 10).toFixed(2));
+    data = { overall, expected_war: +expectedWar.toFixed(2), p_nhl_impact: +pImpact.toFixed(3), value_score: valueScore };
+  }
+
+  state[side].push({ type: 'pick', id, data });
+  updateCard(id, data, 'pick', `Pick #${overall}`);
+  evaluateTrade();
+}
+
+function addLoadingCard(side, id, name) {
+  const container = document.getElementById(`assets${side}`);
+  const empty = container.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const el = document.createElement('div');
+  el.className = 'asset-card loading';
+  el.id = `card-${id}`;
+  el.innerHTML = `<div class="asset-top"><div class="asset-name">${name}</div><div class="asset-value">…</div></div>`;
+  container.appendChild(el);
+}
+
+function updateCard(id, data, type, fallbackName = '') {
+  const el = document.getElementById(`card-${id}`);
+  if (!el) return;
+
+  if (!data) {
+    el.className = 'asset-card error';
+    el.innerHTML = `<div class="asset-top"><div class="asset-name" style="color:var(--red)">${fallbackName} — not found</div><button class="remove-btn" onclick="removeAsset(${id})">✕</button></div>`;
+    return;
+  }
+
+  el.className = `asset-card ${type}`;
+
+  if (type === 'player') {
+    const badge = contractBadge(data.contract_note);
+    const stageTxt = data.age_curve_stage ? ` · ${data.age_curve_stage}` : '';
+    el.innerHTML = `
+      <button class="remove-btn" onclick="removeAsset(${id})">✕</button>
+      <div class="asset-top">
+        <div>
+          <div class="asset-name">${data.player_name}${badge}</div>
+          <div class="asset-meta">${data.position} · Age ${data.age} · ${data.team}${stageTxt}</div>
+        </div>
+        <div class="asset-value">${data.trade_value}</div>
+      </div>
+      <div class="asset-stats">
+        <div class="stat">WAR est <span>${data.war_estimate}</span></div>
+        <div class="stat">Peak WAR <span>${data.peak_war_proj}</span></div>
+        <div class="stat">Efficiency <span>${data.contract_efficiency}</span></div>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <button class="remove-btn" onclick="removeAsset(${id})">✕</button>
+      <div class="asset-top">
+        <div>
+          <div class="asset-name">Pick #${data.overall}</div>
+          <div class="asset-meta">Expected WAR · ${(data.p_nhl_impact * 100).toFixed(0)}% P(NHL impact)</div>
+        </div>
+        <div class="asset-value" style="color:var(--green)">${data.value_score}</div>
+      </div>
+      <div class="asset-stats">
+        <div class="stat">Exp WAR <span>${data.expected_war}</span></div>
+        <div class="stat">P(impact) <span>${(data.p_nhl_impact*100).toFixed(0)}%</span></div>
+      </div>`;
+  }
+}
+
+function contractBadge(note) {
+  if (!note) return '';
+  const map = { ELC: 'badge-elc', standard: '', team_friendly: 'badge-team', overpaid: 'badge-over', UFA: '' };
+  const label = { ELC: 'ELC', team_friendly: 'Value', overpaid: 'Pricey' };
+  if (!label[note]) return '';
+  return `<span class="badge ${map[note]}">${label[note]}</span>`;
+}
+
+function removeAsset(id) {
+  const el = document.getElementById(`card-${id}`);
+  if (el) el.remove();
+  state.A = state.A.filter(a => a.id !== id);
+  state.B = state.B.filter(a => a.id !== id);
+
+  ['A','B'].forEach(s => {
+    const c = document.getElementById(`assets${s}`);
+    if (!c.querySelector('.asset-card')) {
+      c.innerHTML = '<div class="empty-state">Add players or picks below</div>';
+    }
+  });
+  evaluateTrade();
+}
+
+// -- Trade evaluation --
+function evaluateTrade() {
+  const totalA = state.A.reduce((s, a) => s + getValue(a), 0);
+  const totalB = state.B.reduce((s, a) => s + getValue(a), 0);
+  const teamA  = document.getElementById('teamA').value || 'Team A';
+  const teamB  = document.getElementById('teamB').value || 'Team B';
+
+  document.getElementById('totalA').textContent = totalA.toFixed(1);
+  document.getElementById('totalB').textContent = totalB.toFixed(1);
+
+  if (!state.A.length && !state.B.length) {
+    document.getElementById('verdict').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('verdict').style.display = 'block';
+
+  const total    = totalA + totalB || 1;
+  const barA_pct = (totalA / total) * 50;
+  const barB_pct = (totalB / total) * 50;
+
+  document.getElementById('barA').style.width = barA_pct + '%';
+  document.getElementById('barB').style.width = barB_pct + '%';
+  document.getElementById('scoreA').textContent = totalA.toFixed(1);
+  document.getElementById('scoreB').textContent = totalB.toFixed(1);
+  document.getElementById('labelA').textContent = teamA;
+  document.getElementById('labelB').textContent = teamB;
+  document.getElementById('barLabelA').textContent = teamA;
+  document.getElementById('barLabelB').textContent = teamB;
+
+  const diff   = Math.abs(totalA - totalB);
+  const winner = diff < 0.5 ? 'Even' : totalA > totalB ? teamA : teamB;
+  const label  = diff < 0.5 ? 'Even trade'
+               : diff < 1.5 ? `${winner} slight edge`
+               : diff < 3.0 ? `${winner} wins`
+               : `${winner} wins decisively`;
+
+  const verdictEl = document.getElementById('verdictLabel');
+  verdictEl.textContent = label;
+  verdictEl.className   = `verdict-label ${diff < 0.5 ? 'even' : 'winner'}`;
+
+  // Win-now vs future
+  const winNowA  = state.A.filter(a=>a.type==='player').reduce((s,a)=>s+(a.data.war_estimate||0),0);
+  const winNowB  = state.B.filter(a=>a.type==='player').reduce((s,a)=>s+(a.data.war_estimate||0),0);
+  const futureA  = state.A.reduce((s,a)=>s+(a.type==='player'?(a.data.peak_war_proj||0):(a.data.expected_war||0)),0);
+  const futureB  = state.B.reduce((s,a)=>s+(a.type==='player'?(a.data.peak_war_proj||0):(a.data.expected_war||0)),0);
+
+  const winNowWinner = Math.abs(winNowA-winNowB)<0.3?'Even':winNowA>winNowB?teamA:teamB;
+  const futureWinner = Math.abs(futureA-futureB)<0.3?'Even':futureA>futureB?teamA:teamB;
+
+  document.getElementById('mDiff').textContent    = diff.toFixed(1);
+  document.getElementById('mWinNow').textContent  = winNowWinner;
+  document.getElementById('mFuture').textContent  = futureWinner;
+  document.getElementById('mCap').textContent     = '—';
+}
+
+function getValue(asset) {
+  if (asset.type === 'player') return asset.data.trade_value || 0;
+  return asset.data.value_score || 0;
+}
+
+// Setup
+setupSearch('A');
+setupSearch('B');
+
+document.getElementById('teamA').addEventListener('input', evaluateTrade);
+document.getElementById('teamB').addEventListener('input', evaluateTrade);
+</script>
+</body>
+</html>
