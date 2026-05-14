@@ -1,704 +1,685 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NHL Trade Evaluator</title>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NHL Trade Evaluator</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#070b10;--surface:rgba(255,255,255,0.04);--surface2:rgba(255,255,255,0.07);
+  --border:rgba(255,255,255,0.09);--border2:rgba(255,255,255,0.18);
+  --text:#edf2f7;--muted:#6b7280;--radius:12px;
+  --blue:#3b9eff;--green:#34d399;--red:#f87171;--gold:#fbbf24;
+}
+html{background:var(--bg)}
+body{
+  font-family:'Inter',sans-serif;font-size:14px;color:var(--text);min-height:100vh;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%,rgba(59,158,255,0.18) 0%,transparent 70%),
+    linear-gradient(180deg,#070b10 0%,#0c1520 40%,#091018 100%);
+  background-attachment:fixed;
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    repeating-linear-gradient(90deg,transparent,transparent 199px,rgba(255,255,255,0.015) 199px,rgba(255,255,255,0.015) 200px),
+    repeating-linear-gradient(0deg,transparent,transparent 199px,rgba(255,255,255,0.015) 199px,rgba(255,255,255,0.015) 200px);
+}
+.app{max-width:1080px;margin:0 auto;padding:2rem 1.25rem 5rem;position:relative;z-index:1}
+.header{text-align:center;margin-bottom:2.5rem}
+.header h1{
+  font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:800;
+  text-transform:uppercase;letter-spacing:0.06em;
+  background:linear-gradient(135deg,#fff 0%,rgba(255,255,255,0.5) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.header p{color:var(--muted);font-size:12px;margin-top:6px;letter-spacing:0.04em;text-transform:uppercase}
 
-    :root {
-      --bg:        #0d1117;
-      --surface:   #161b22;
-      --surface2:  #1c2128;
-      --border:    rgba(255,255,255,0.08);
-      --border2:   rgba(255,255,255,0.14);
-      --text:      #e6edf3;
-      --muted:     #8b949e;
-      --blue:      #2d8cf0;
-      --blue-dim:  rgba(45,140,240,0.12);
-      --green:     #3fb950;
-      --green-dim: rgba(63,185,80,0.12);
-      --red:       #f85149;
-      --red-dim:   rgba(248,81,73,0.12);
-      --gold:      #d29922;
-      --gold-dim:  rgba(210,153,34,0.12);
-      --radius:    10px;
-    }
+/* Team selector */
+#teamSelect{margin-bottom:2rem}
+.select-label{text-align:center;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:1rem}
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;max-height:300px;overflow-y:auto;padding:4px}
+.team-grid::-webkit-scrollbar{width:4px}
+.team-grid::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.team-btn{
+  display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;
+  border-radius:10px;cursor:pointer;background:var(--surface);border:1px solid var(--border);transition:all 0.15s;
+}
+.team-btn:hover{background:var(--surface2);border-color:var(--border2)}
+.team-btn.selected-a{border-color:var(--blue);background:rgba(59,158,255,0.1)}
+.team-btn.selected-b{border-color:var(--green);background:rgba(52,211,153,0.1)}
+.team-btn img{width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))}
+.team-btn span{font-size:11px;font-weight:600;color:var(--text);letter-spacing:0.04em}
+.select-hint{text-align:center;font-size:12px;color:var(--muted);margin-top:10px}
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', sans-serif;
-      font-size: 14px;
-      min-height: 100vh;
-    }
+/* Trade app */
+#tradeApp{display:none}
+.trade-grid{display:grid;grid-template-columns:1fr 60px 1fr;gap:0;align-items:start;margin-bottom:1.25rem}
+.team-panel{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius);overflow:visible;backdrop-filter:blur(12px)}
+.team-header{padding:14px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.team-logo-header{width:42px;height:42px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6))}
+.team-info{flex:1}
+.team-name-display{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text);line-height:1}
+.team-cap-info{font-size:11px;color:var(--muted);margin-top:3px}
+.team-total-wrap{text-align:right}
+.team-total-val{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;color:var(--blue);line-height:1}
+.team-total-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em}
 
-    .app { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+.assets{padding:10px;min-height:160px}
+.empty-state{display:flex;align-items:center;justify-content:center;height:120px;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:8px}
 
-    /* Header */
-    .header { text-align: center; margin-bottom: 2.5rem; }
-    .header h1 {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 42px; font-weight: 700;
-      letter-spacing: 0.04em; text-transform: uppercase;
-      background: linear-gradient(135deg, #e6edf3 0%, #8b949e 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .header p { color: var(--muted); font-size: 13px; margin-top: 6px; letter-spacing: 0.03em; }
+.asset-card{
+  background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;
+  padding:10px 12px;margin-bottom:8px;position:relative;transition:border-color 0.15s;
+  display:flex;gap:10px;align-items:flex-start;
+}
+.asset-card:hover{border-color:var(--border2)}
+.asset-card.player{border-left:3px solid var(--blue)}
+.asset-card.pick{border-left:3px solid var(--green)}
+.asset-card.loading{opacity:0.4}
+.asset-card.error{border-left:3px solid var(--red)}
 
-    /* Trade grid */
-    .trade-grid {
-      display: grid;
-      grid-template-columns: 1fr 56px 1fr;
-      gap: 0;
-      align-items: start;
-      margin-bottom: 1.5rem;
-    }
+.player-photo{width:52px;height:52px;border-radius:8px;object-fit:cover;background:var(--surface2);flex-shrink:0;border:1px solid var(--border)}
+.player-photo-placeholder{width:52px;height:52px;border-radius:8px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--muted)}
+.pick-icon{width:52px;height:52px;border-radius:8px;flex-shrink:0;background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--green);text-align:center;line-height:1.1;padding:4px}
 
-    /* Team panel */
-    .team-panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-    .team-header {
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .team-name-input {
-      background: transparent; border: none; outline: none;
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 20px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.05em; color: var(--text);
-      width: 70%;
-    }
-    .team-total {
-      font-size: 22px; font-weight: 600;
-      font-family: 'Barlow Condensed', sans-serif;
-      color: var(--blue);
-    }
+.asset-body{flex:1;min-width:0}
+.asset-top{display:flex;justify-content:space-between;align-items:flex-start}
+.asset-name{font-weight:600;font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:165px}
+.asset-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.asset-value-wrap{text-align:right;flex-shrink:0;margin-left:8px}
+.asset-value{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:var(--blue);line-height:1}
+.asset-value-scale{font-size:10px;color:var(--muted);text-align:right}
+.asset-stats{display:flex;gap:12px;margin-top:6px;flex-wrap:wrap}
+.stat{font-size:11px;color:var(--muted)}
+.stat span{color:var(--text);font-weight:500}
+.cap-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:rgba(251,191,36,0.12);color:var(--gold);border:1px solid rgba(251,191,36,0.2);margin-top:4px}
 
-    /* Assets list */
-    .assets { padding: 10px; min-height: 180px; }
-    .asset-card {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
-      margin-bottom: 8px;
-      position: relative;
-      transition: border-color 0.15s;
-    }
-    .asset-card:hover { border-color: var(--border2); }
-    .asset-card.player { border-left: 3px solid var(--blue); }
-    .asset-card.pick   { border-left: 3px solid var(--green); }
-    .asset-card.loading { opacity: 0.5; }
-    .asset-card.error { border-left-color: var(--red); }
+.remove-btn{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;opacity:0;transition:opacity 0.15s;padding:2px}
+.asset-card:hover .remove-btn{opacity:1}
 
-    .asset-top { display: flex; justify-content: space-between; align-items: flex-start; }
-    .asset-name { font-weight: 600; font-size: 14px; color: var(--text); }
-    .asset-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .asset-value {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 20px; font-weight: 700;
-      color: var(--blue); min-width: 40px; text-align: right;
-    }
-    .asset-stats { display: flex; gap: 14px; margin-top: 7px; flex-wrap: wrap; }
-    .stat { font-size: 11px; color: var(--muted); }
-    .stat span { color: var(--text); font-weight: 500; }
+/* Add section */
+.add-section{padding:0 10px 10px}
+.add-row{display:flex;gap:6px;margin-bottom:8px}
+.search-wrap{position:relative;flex:1}
+.add-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color 0.15s}
+.add-input:focus{border-color:var(--border2)}
+.add-btn{background:rgba(59,158,255,0.1);border:1px solid rgba(59,158,255,0.35);border-radius:8px;padding:8px 12px;color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;transition:background 0.15s}
+.add-btn:hover{background:rgba(59,158,255,0.2)}
+.add-btn.pick-btn{background:rgba(52,211,153,0.1);border-color:rgba(52,211,153,0.35);color:var(--green)}
+.add-btn.pick-btn:hover{background:rgba(52,211,153,0.2)}
+.pick-row{display:flex;gap:6px;align-items:center}
+.pick-row label{font-size:11px;color:var(--muted);white-space:nowrap}
+.pick-num-input{width:70px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;text-align:center}
+.pick-year-inp{width:82px}
 
-    .badge {
-      display: inline-block; font-size: 10px; padding: 2px 6px;
-      border-radius: 4px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.05em; margin-left: 5px; vertical-align: middle;
-    }
-    .badge-nmc  { background: var(--red-dim);   color: var(--red);  }
-    .badge-elc  { background: var(--green-dim); color: var(--green);}
-    .badge-team { background: var(--blue-dim);  color: var(--blue); }
-    .badge-over { background: var(--gold-dim);  color: var(--gold); }
+/* Suggestions */
+.suggestions{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#111827;border:1px solid var(--border2);border-radius:8px;z-index:200;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.6);max-height:260px;overflow-y:auto}
+.suggestion-item{padding:9px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:10px;transition:background 0.1s;border-bottom:1px solid rgba(255,255,255,0.04)}
+.suggestion-item:last-child{border-bottom:none}
+.suggestion-item:hover{background:rgba(255,255,255,0.06)}
+.sug-photo{width:28px;height:28px;border-radius:4px;object-fit:cover;background:var(--surface2);flex-shrink:0}
+.sug-info{flex:1}
+.sug-name{font-weight:500;color:var(--text)}
+.sug-meta{font-size:11px;color:var(--muted)}
+.sug-pts{font-size:12px;font-weight:600;color:var(--muted)}
 
-    .remove-btn {
-      position: absolute; top: 8px; right: 8px;
-      background: none; border: none; color: var(--muted);
-      cursor: pointer; font-size: 16px; line-height: 1;
-      opacity: 0; transition: opacity 0.15s;
-    }
-    .asset-card:hover .remove-btn { opacity: 1; }
+/* Arrow */
+.arrow-col{display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:80px;gap:10px}
+.arrow-circle{width:40px;height:40px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--muted)}
 
-    /* Add asset row */
-    .add-row {
-      display: flex; gap: 6px; padding: 0 10px 10px;
-    }
-    .add-input {
-      flex: 1; background: var(--surface2);
-      border: 1px solid var(--border); border-radius: 8px;
-      padding: 8px 10px; color: var(--text); font-size: 13px;
-      font-family: 'Inter', sans-serif; outline: none;
-      transition: border-color 0.15s;
-    }
-    .add-input:focus { border-color: var(--border2); }
-    .add-btn {
-      background: var(--blue-dim); border: 1px solid var(--blue);
-      border-radius: 8px; padding: 8px 14px; color: var(--blue);
-      font-size: 13px; font-weight: 600; cursor: pointer;
-      font-family: 'Inter', sans-serif; white-space: nowrap;
-    }
-    .add-btn:hover { background: rgba(45,140,240,0.2); }
-    .add-btn.pick-btn {
-      background: var(--green-dim); border-color: var(--green);
-      color: var(--green);
-    }
-    .add-btn.pick-btn:hover { background: rgba(63,185,80,0.2); }
-
-    /* Arrow col */
-    .arrow-col { display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 72px; gap: 8px; }
-    .arrow-icon {
-      width: 36px; height: 36px; border-radius: 50%;
-      background: var(--surface2); border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 16px; color: var(--muted);
-    }
-
-    /* Verdict panel */
-    .verdict {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.25rem 1.5rem;
-    }
-    .verdict-header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 1rem;
-    }
-    .verdict-label {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-size: 20px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .verdict-label.even   { color: var(--muted); }
-    .verdict-label.winner { color: var(--green);  }
-
-    /* Value bar */
-    .bar-section { margin-bottom: 1rem; }
-    .bar-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-    .bar-track {
-      width: 100%; height: 12px; background: var(--surface2);
-      border-radius: 6px; overflow: hidden; position: relative;
-      border: 1px solid var(--border);
-    }
-    .bar-fill-a {
-      position: absolute; left: 0; top: 0; height: 100%;
-      background: var(--blue); border-radius: 6px 0 0 6px;
-      transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
-    }
-    .bar-fill-b {
-      position: absolute; right: 0; top: 0; height: 100%;
-      background: var(--green); border-radius: 0 6px 6px 0;
-      transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
-    }
-
-    /* Metrics row */
-    .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 1rem; }
-    .metric {
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 8px; padding: 10px 14px; text-align: center;
-    }
-    .metric .mv { font-size: 20px; font-weight: 700; font-family: 'Barlow Condensed', sans-serif; color: var(--text); }
-    .metric .ml { font-size: 11px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
-
-    /* Scores */
-    .score-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    .score-block { text-align: center; min-width: 80px; }
-    .score-block .sv { font-family: 'Barlow Condensed', sans-serif; font-size: 36px; font-weight: 700; line-height: 1; }
-    .score-block .sl { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .score-block.a .sv { color: var(--blue);  }
-    .score-block.b .sv { color: var(--green); }
-
-    /* Suggestions dropdown */
-    .search-wrap { position: relative; flex: 1; }
-    .suggestions {
-      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-      background: var(--surface2); border: 1px solid var(--border2);
-      border-radius: 8px; z-index: 10; overflow: hidden;
-    }
-    .suggestion-item {
-      padding: 8px 12px; cursor: pointer; font-size: 13px;
-      display: flex; justify-content: space-between;
-      transition: background 0.1s;
-    }
-    .suggestion-item:hover { background: var(--surface); }
-    .suggestion-item .s-team { font-size: 11px; color: var(--muted); }
-
-    .empty-state { text-align: center; color: var(--muted); font-size: 13px; padding: 2rem 0; }
-    .api-notice {
-      background: var(--gold-dim); border: 1px solid var(--gold);
-      border-radius: 8px; padding: 10px 14px; margin-bottom: 1.5rem;
-      font-size: 12px; color: var(--gold);
-    }
-  </style>
+/* Verdict */
+.verdict{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;backdrop-filter:blur(12px)}
+.verdict-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;gap:16px}
+.verdict-label{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em}
+.verdict-label.even{color:var(--muted)}
+.verdict-label.winner{color:var(--green)}
+.rating-legend{display:flex;gap:4px;align-items:center;font-size:10px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.rating-legend span{padding:2px 6px;border-radius:3px;font-weight:600;font-size:10px}
+.verdict-scores{display:flex;align-items:center;gap:16px;flex-shrink:0}
+.vscore{text-align:center}
+.vscore .vv{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;line-height:1}
+.vscore.a .vv{color:var(--blue)}
+.vscore.b .vv{color:var(--green)}
+.vscore .vl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px}
+.vscore .vs-scale{font-size:10px;color:var(--muted)}
+.bar-track{width:100%;height:14px;background:rgba(255,255,255,0.05);border-radius:7px;overflow:hidden;position:relative;margin:0.75rem 0}
+.bar-a{position:absolute;left:0;top:0;height:100%;background:var(--blue);border-radius:7px 0 0 7px;transition:width 0.7s cubic-bezier(0.4,0,0.2,1)}
+.bar-b{position:absolute;right:0;top:0;height:100%;background:var(--green);border-radius:0 7px 7px 0;transition:width 0.7s cubic-bezier(0.4,0,0.2,1)}
+.bar-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:1rem}
+.metric{background:var(--surface2);border-radius:8px;padding:10px 12px;text-align:center;border:1px solid var(--border)}
+.metric .mv{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--text)}
+.metric .ml{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px}
+.change-teams-btn{display:block;margin:1.25rem auto 0;background:none;border:1px solid var(--border);border-radius:8px;padding:8px 20px;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s}
+.change-teams-btn:hover{border-color:var(--border2);color:var(--text)}
+</style>
 </head>
 <body>
 <div class="app">
   <div class="header">
     <h1>Trade Evaluator</h1>
-    <p>Player value above replacement · Contract efficiency · Age curve projection · Pick value model</p>
+    <p>WAR · Contract efficiency · Age curve · Pick value model</p>
   </div>
 
-  <div class="api-notice" id="apiNotice">
-    ⚠ Running in demo mode — connect to <code>http://localhost:8000</code> to use live data.
-    <a href="#" onclick="checkApi()" style="color:var(--gold);margin-left:8px;">Retry connection</a>
+  <div id="teamSelect">
+    <div class="select-label" id="selectLabel">Select Team A</div>
+    <div class="team-grid" id="teamGrid"></div>
+    <div class="select-hint" id="selectHint">Click a team to select it</div>
   </div>
 
-  <div class="trade-grid">
-    <!-- Side A -->
-    <div class="team-panel" id="panelA">
-      <div class="team-header">
-        <input class="team-name-input" id="teamA" value="Team A" />
-        <div class="team-total" id="totalA">—</div>
-      </div>
-      <div class="assets" id="assetsA">
-        <div class="empty-state">Add players or picks below</div>
-      </div>
-      <div class="add-row">
-        <div class="search-wrap">
-          <input class="add-input" id="inputA" placeholder="Player name..." autocomplete="off" />
-          <div class="suggestions" id="suggestA" style="display:none;"></div>
-        </div>
-        <button class="add-btn" onclick="addPlayer('A')">+ Player</button>
-        <button class="add-btn pick-btn" onclick="promptPick('A')">+ Pick</button>
-      </div>
-    </div>
-
-    <!-- Arrow -->
-    <div class="arrow-col">
-      <div class="arrow-icon">⇄</div>
-    </div>
-
-    <!-- Side B -->
-    <div class="team-panel" id="panelB">
-      <div class="team-header">
-        <input class="team-name-input" id="teamB" value="Team B" />
-        <div class="team-total" id="totalB">—</div>
-      </div>
-      <div class="assets" id="assetsB">
-        <div class="empty-state">Add players or picks below</div>
-      </div>
-      <div class="add-row">
-        <div class="search-wrap">
-          <input class="add-input" id="inputB" placeholder="Player name..." autocomplete="off" />
-          <div class="suggestions" id="suggestB" style="display:none;"></div>
-        </div>
-        <button class="add-btn" onclick="addPlayer('B')">+ Player</button>
-        <button class="add-btn pick-btn" onclick="promptPick('B')">+ Pick</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Verdict -->
-  <div class="verdict" id="verdict" style="display:none;">
-    <div class="verdict-header">
-      <div class="verdict-label" id="verdictLabel">—</div>
-    </div>
-    <div class="score-row">
-      <div class="score-block a">
-        <div class="sv" id="scoreA">0.0</div>
-        <div class="sl" id="labelA">Team A</div>
-      </div>
-      <div style="flex:1; padding: 0 16px;">
-        <div class="bar-section">
-          <div class="bar-labels">
-            <span id="barLabelA">Team A</span>
-            <span id="barLabelB">Team B</span>
+  <div id="tradeApp">
+    <div class="trade-grid">
+      <div class="team-panel">
+        <div class="team-header">
+          <img class="team-logo-header" id="logoA" src="" alt=""/>
+          <div class="team-info">
+            <div class="team-name-display" id="nameA">—</div>
+            <div class="team-cap-info" id="capA">—</div>
           </div>
-          <div class="bar-track">
-            <div class="bar-fill-a" id="barA" style="width:0%"></div>
-            <div class="bar-fill-b" id="barB" style="width:0%"></div>
+          <div class="team-total-wrap">
+            <div class="team-total-val" id="totalA">0.0</div>
+            <div class="team-total-lbl">/ 10 pts</div>
+          </div>
+        </div>
+        <div class="assets" id="assetsA"><div class="empty-state">Add players or picks below</div></div>
+        <div class="add-section">
+          <div class="add-row">
+            <div class="search-wrap">
+              <input class="add-input" id="inputA" placeholder="Search any NHL player..." autocomplete="off"/>
+              <div class="suggestions" id="suggestA" style="display:none"></div>
+            </div>
+            <button class="add-btn" onclick="addPlayer('A')">+ Player</button>
+          </div>
+          <div class="pick-row">
+            <label>Add pick:</label>
+            <input class="pick-num-input pick-year-inp" id="pickYearA" placeholder="Year" type="number" min="2025" max="2035" value="2025"/>
+            <input class="pick-num-input" id="pickOverallA" placeholder="Pick #" type="number" min="1" max="224"/>
+            <button class="add-btn pick-btn" onclick="addPickFromInputs('A')">+ Pick</button>
           </div>
         </div>
       </div>
-      <div class="score-block b">
-        <div class="sv" id="scoreB">0.0</div>
-        <div class="sl" id="labelB">Team B</div>
+
+      <div class="arrow-col"><div class="arrow-circle">⇄</div></div>
+
+      <div class="team-panel">
+        <div class="team-header">
+          <img class="team-logo-header" id="logoB" src="" alt=""/>
+          <div class="team-info">
+            <div class="team-name-display" id="nameB">—</div>
+            <div class="team-cap-info" id="capB">—</div>
+          </div>
+          <div class="team-total-wrap">
+            <div class="team-total-val" id="totalB" style="color:var(--green)">0.0</div>
+            <div class="team-total-lbl">/ 10 pts</div>
+          </div>
+        </div>
+        <div class="assets" id="assetsB"><div class="empty-state">Add players or picks below</div></div>
+        <div class="add-section">
+          <div class="add-row">
+            <div class="search-wrap">
+              <input class="add-input" id="inputB" placeholder="Search any NHL player..." autocomplete="off"/>
+              <div class="suggestions" id="suggestB" style="display:none"></div>
+            </div>
+            <button class="add-btn" onclick="addPlayer('B')">+ Player</button>
+          </div>
+          <div class="pick-row">
+            <label>Add pick:</label>
+            <input class="pick-num-input pick-year-inp" id="pickYearB" placeholder="Year" type="number" min="2025" max="2035" value="2025"/>
+            <input class="pick-num-input" id="pickOverallB" placeholder="Pick #" type="number" min="1" max="224"/>
+            <button class="add-btn pick-btn" onclick="addPickFromInputs('B')">+ Pick</button>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="metrics-row">
-      <div class="metric"><div class="mv" id="mDiff">—</div><div class="ml">Value gap</div></div>
-      <div class="metric"><div class="mv" id="mWinNow">—</div><div class="ml">Win-now edge</div></div>
-      <div class="metric"><div class="mv" id="mFuture">—</div><div class="ml">Future edge</div></div>
-      <div class="metric"><div class="mv" id="mCap">—</div><div class="ml">Cap added</div></div>
+
+    <div class="verdict" id="verdict">
+      <div class="verdict-top">
+        <div>
+          <div class="verdict-label even" id="verdictLabel">Add assets to evaluate</div>
+          <div class="rating-legend">
+            Rating out of 10 —
+            <span style="background:rgba(248,113,113,0.15);color:var(--red)">0–2 Fringe</span>
+            <span style="background:rgba(251,191,36,0.15);color:var(--gold)">3–5 Solid</span>
+            <span style="background:rgba(59,158,255,0.15);color:var(--blue)">6–8 Star</span>
+            <span style="background:rgba(52,211,153,0.15);color:var(--green)">9–10 Elite</span>
+          </div>
+        </div>
+        <div class="verdict-scores">
+          <div class="vscore a">
+            <div class="vv" id="scoreA">—</div>
+            <div class="vl" id="scoreLabelA">A</div>
+            <div class="vs-scale">/ 10</div>
+          </div>
+          <div style="color:var(--muted);font-size:18px">vs</div>
+          <div class="vscore b">
+            <div class="vv" id="scoreB">—</div>
+            <div class="vl" id="scoreLabelB">B</div>
+            <div class="vs-scale">/ 10</div>
+          </div>
+        </div>
+      </div>
+      <div class="bar-labels"><span id="barLabelA">Team A</span><span id="barLabelB">Team B</span></div>
+      <div class="bar-track">
+        <div class="bar-a" id="barA" style="width:0%"></div>
+        <div class="bar-b" id="barB" style="width:0%"></div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="mv" id="mDiff">—</div><div class="ml">Value gap</div></div>
+        <div class="metric"><div class="mv" id="mWinNow">—</div><div class="ml">Win-now edge</div></div>
+        <div class="metric"><div class="mv" id="mFuture">—</div><div class="ml">Future edge</div></div>
+        <div class="metric"><div class="mv" id="mCap">—</div><div class="ml">Cap added (A)</div></div>
+      </div>
     </div>
+    <button class="change-teams-btn" onclick="resetTeams()">↩ Change teams</button>
   </div>
 </div>
-
 <script>
-const API = 'http://localhost:8000';
-let apiLive = false;
+const NHL_TEAMS=[
+  {abbr:'ANA',name:'Anaheim Ducks'},{abbr:'BOS',name:'Boston Bruins'},
+  {abbr:'BUF',name:'Buffalo Sabres'},{abbr:'CGY',name:'Calgary Flames'},
+  {abbr:'CAR',name:'Carolina Hurricanes'},{abbr:'CHI',name:'Chicago Blackhawks'},
+  {abbr:'COL',name:'Colorado Avalanche'},{abbr:'CBJ',name:'Columbus Blue Jackets'},
+  {abbr:'DAL',name:'Dallas Stars'},{abbr:'DET',name:'Detroit Red Wings'},
+  {abbr:'EDM',name:'Edmonton Oilers'},{abbr:'FLA',name:'Florida Panthers'},
+  {abbr:'LAK',name:'Los Angeles Kings'},{abbr:'MIN',name:'Minnesota Wild'},
+  {abbr:'MTL',name:'Montreal Canadiens'},{abbr:'NSH',name:'Nashville Predators'},
+  {abbr:'NJD',name:'New Jersey Devils'},{abbr:'NYI',name:'New York Islanders'},
+  {abbr:'NYR',name:'New York Rangers'},{abbr:'OTT',name:'Ottawa Senators'},
+  {abbr:'PHI',name:'Philadelphia Flyers'},{abbr:'PIT',name:'Pittsburgh Penguins'},
+  {abbr:'SEA',name:'Seattle Kraken'},{abbr:'SJS',name:'San Jose Sharks'},
+  {abbr:'STL',name:'St. Louis Blues'},{abbr:'TBL',name:'Tampa Bay Lightning'},
+  {abbr:'TOR',name:'Toronto Maple Leafs'},{abbr:'UTA',name:'Utah Hockey Club'},
+  {abbr:'VAN',name:'Vancouver Canucks'},{abbr:'VGK',name:'Vegas Golden Knights'},
+  {abbr:'WSH',name:'Washington Capitals'},{abbr:'WPG',name:'Winnipeg Jets'},
+];
 
-// Full NHL roster — loaded from NHL public API on startup
-let NHL_PLAYERS = [];   // [{ name, team, position, id }]
-let rosterLoaded = false;
+function teamLogo(a){return `https://assets.nhle.com/logos/nhl/svg/${a}_light.svg`}
+function playerPhoto(id){return `https://assets.nhle.com/mugs/${id}.png`}
+function formatCap(v){return v?'$'+(v/1e6).toFixed(2)+'M':'—'}
 
-async function loadNHLRoster() {
-  try {
-    // NHL public API — no key required
-    const r = await fetch('https://api.nhle.com/stats/rest/en/skater/summary?limit=-1&cayenneExp=seasonId=20242025%20and%20gameTypeId=2', {
-      signal: AbortSignal.timeout(8000)
-    });
-    const data = await r.json();
-    NHL_PLAYERS = (data.data || []).map(p => ({
-      name:     p.skaterFullName,
-      team:     p.teamAbbrevs || '',
-      position: p.positionCode,
-      gp:       p.gamesPlayed || 0,
-      goals:    p.goals || 0,
-      assists:  p.assists || 0,
-      points:   p.points || 0,
-      id:       p.playerId,
-    }));
-    rosterLoaded = true;
-    console.log(`Loaded ${NHL_PLAYERS.length} NHL players`);
-  } catch(e) {
-    console.warn('NHL roster load failed, using fallback', e);
-    // Minimal fallback so app doesn't break completely
-    NHL_PLAYERS = [
-      { name:'Nathan MacKinnon', team:'COL', position:'C', gp:82, points:120 },
-      { name:'Connor McDavid',   team:'EDM', position:'C', gp:82, points:132 },
-      { name:'Cale Makar',       team:'COL', position:'D', gp:80, points:90  },
-      { name:'Adam Fox',         team:'NYR', position:'D', gp:78, points:75  },
-      { name:'Auston Matthews',  team:'TOR', position:'C', gp:81, points:98  },
-      { name:'Quinn Hughes',     team:'VAN', position:'D', gp:82, points:92  },
-      { name:'David Pastrnak',   team:'BOS', position:'R', gp:82, points:95  },
-      { name:'Leon Draisaitl',   team:'EDM', position:'C', gp:80, points:102 },
-      { name:'Jack Hughes',      team:'NJD', position:'C', gp:78, points:99  },
-      { name:'Jack Drury',       team:'CAR', position:'C', gp:72, points:48  },
-    ];
-  }
-}
+let selectedA=null,selectedB=null,selectingFor='A';
+let NHL_PLAYERS=[];
+const state={A:[],B:[]};
+const API='http://localhost:8000';
+let apiLive=false;
 
-// Estimate trade value client-side from NHL stats when API offline
-function estimateTradeValue(player) {
-  const ptsPer82 = player.gp > 0 ? (player.points / player.gp) * 82 : 0;
-  const isD = player.position === 'D';
-  // Rough WAR estimate: points pace adjusted for position
-  const warEst   = isD ? ptsPer82 * 0.045 : ptsPer82 * 0.038;
-  const tradeVal = Math.min(10, Math.max(0.5, warEst * 1.4));
-  return {
-    player_name:         player.name,
-    team:                player.team,
-    position:            player.position,
-    age:                 null,
-    war_estimate:        +warEst.toFixed(2),
-    contract_efficiency: null,
-    trade_value:         +tradeVal.toFixed(1),
-    peak_war_proj:       +(warEst * 1.1).toFixed(2),
-    age_curve_stage:     null,
-    contract_note:       null,
-    _estimated:          true,   // flag so UI can note it's an estimate
-  };
-}
-
-const state = { A: [], B: [] };
-
-async function checkApi() {
-  try {
-    const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(2000) });
-    if (r.ok) {
-      apiLive = true;
-      document.getElementById('apiNotice').style.display = 'none';
-    }
-  } catch { apiLive = false; }
-}
-
-// Load roster immediately — don't wait for API check
-loadNHLRoster();
+// Boot
+renderTeamGrid();
+loadRoster();
 checkApi();
 
-// -- Search autocomplete --
-function setupSearch(side) {
-  const input = document.getElementById(`input${side}`);
-  const box   = document.getElementById(`suggest${side}`);
+function renderTeamGrid(){
+  document.getElementById('teamGrid').innerHTML=NHL_TEAMS.map(t=>`
+    <div class="team-btn" id="tbtn-${t.abbr}" onclick="selectTeam('${t.abbr}')">
+      <img src="${teamLogo(t.abbr)}" alt="${t.name}" onerror="this.style.opacity='0.2'"/>
+      <span>${t.abbr}</span>
+    </div>`).join('');
+}
+
+function selectTeam(abbr){
+  const team=NHL_TEAMS.find(t=>t.abbr===abbr);
+  if(selectingFor==='A'){
+    selectedA=team;
+    document.querySelectorAll('.team-btn').forEach(b=>b.classList.remove('selected-a'));
+    document.getElementById(`tbtn-${abbr}`).classList.add('selected-a');
+    document.getElementById('selectLabel').textContent='Now select Team B';
+    document.getElementById('selectHint').textContent=`Team A: ${team.name} ✓ — now pick Team B`;
+    selectingFor='B';
+  } else {
+    if(abbr===selectedA.abbr){alert('Pick a different team for Team B');return;}
+    selectedB=team;
+    document.querySelectorAll('.team-btn').forEach(b=>b.classList.remove('selected-b'));
+    document.getElementById(`tbtn-${abbr}`).classList.add('selected-b');
+    setTimeout(launchTradeApp,200);
+  }
+}
+
+function launchTradeApp(){
+  document.getElementById('teamSelect').style.display='none';
+  document.getElementById('tradeApp').style.display='block';
+  document.getElementById('logoA').src=teamLogo(selectedA.abbr);
+  document.getElementById('nameA').textContent=selectedA.name;
+  document.getElementById('logoB').src=teamLogo(selectedB.abbr);
+  document.getElementById('nameB').textContent=selectedB.name;
+  document.getElementById('scoreLabelA').textContent=selectedA.abbr;
+  document.getElementById('scoreLabelB').textContent=selectedB.abbr;
+  document.getElementById('barLabelA').textContent=selectedA.name;
+  document.getElementById('barLabelB').textContent=selectedB.name;
+  // Show season and player count once roster is loaded (or placeholder)
+  const s=currentNHLSeason();
+  const yr=`${s.slice(0,4)}-${s.slice(6,8)}`;
+  const cntA=NHL_PLAYERS.filter(p=>p.team===selectedA.abbr).length;
+  const cntB=NHL_PLAYERS.filter(p=>p.team===selectedB.abbr).length;
+  document.getElementById('capA').textContent=cntA?`${cntA} players · ${yr} season`:`Loading ${yr} roster...`;
+  document.getElementById('capB').textContent=cntB?`${cntB} players · ${yr} season`:`Loading ${yr} roster...`;
+  setupSearch('A');setupSearch('B');
+  evaluateTrade();
+}
+
+function resetTeams(){
+  selectedA=selectedB=null;selectingFor='A';
+  state.A=[];state.B=[];
+  ['A','B'].forEach(s=>{
+    document.getElementById(`assets${s}`).innerHTML='<div class="empty-state">Add players or picks below</div>';
+    document.getElementById(`total${s}`).textContent='0.0';
+  });
+  document.getElementById('tradeApp').style.display='none';
+  document.getElementById('teamSelect').style.display='block';
+  document.getElementById('selectLabel').textContent='Select Team A';
+  document.getElementById('selectHint').textContent='Click a team to select it';
+  document.querySelectorAll('.team-btn').forEach(b=>b.classList.remove('selected-a','selected-b'));
+}
+
+function currentNHLSeason(){
+  const now=new Date();
+  const year=now.getMonth()>=9?now.getFullYear():now.getFullYear()-1;
+  return `${year}${year+1}`;
+}
+
+async function loadRoster(){
+  const season=currentNHLSeason();
+  console.log(`Loading ${season} season data`);
+  try{
+    // Stats API — players who appeared in games this season
+    const r=await fetch(`https://api.nhle.com/stats/rest/en/skater/summary?limit=-1&cayenneExp=seasonId=${season}%20and%20gameTypeId=2`,{signal:AbortSignal.timeout(12000)});
+    const d=await r.json();
+    const statPlayers=(d.data||[]).map(p=>({
+      name:p.skaterFullName,
+      team:p.teamAbbrevs?.split(',')[0]||'',
+      position:p.positionCode,
+      gp:p.gamesPlayed||0,
+      goals:p.goals||0,
+      assists:p.assists||0,
+      points:p.points||0,
+      id:p.playerId,
+    }));
+    // Roster API — catches rookies and players with 0 GP (injured, prospects)
+    const rosterExtras=await loadAllRosters(new Set(statPlayers.map(p=>p.id)));
+    NHL_PLAYERS=[...statPlayers,...rosterExtras];
+    const yr=`${season.slice(0,4)}-${season.slice(6,8)}`;
+    if(selectedA) document.getElementById('capA').textContent=`${NHL_PLAYERS.filter(p=>p.team===selectedA.abbr).length} players · ${yr}`;
+    if(selectedB) document.getElementById('capB').textContent=`${NHL_PLAYERS.filter(p=>p.team===selectedB.abbr).length} players · ${yr}`;
+    console.log(`Loaded ${NHL_PLAYERS.length} skaters (${statPlayers.length} w/ stats + ${rosterExtras.length} roster-only)`);
+  }catch(e){console.warn('Roster load failed',e)}
+}
+
+async function loadAllRosters(existingIds){
+  const extras=[];
+  try{
+    const promises=NHL_TEAMS.map(t=>
+      fetch(`https://api-web.nhle.com/v1/roster/${t.abbr}/current`,{signal:AbortSignal.timeout(8000)})
+        .then(r=>r.json())
+        .then(d=>{
+          const all=[...(d.forwards||[]),...(d.defensemen||[]),...(d.goalies||[])];
+          return all
+            .filter(p=>!existingIds.has(p.id))
+            .map(p=>({
+              name:`${p.firstName?.default||''} ${p.lastName?.default||''}`.trim(),
+              team:t.abbr,position:p.positionCode||'',
+              gp:0,goals:0,assists:0,points:0,id:p.id,
+            }));
+        })
+        .catch(()=>[])
+    );
+    const results=await Promise.all(promises);
+    results.forEach(arr=>extras.push(...arr));
+  }catch(e){console.warn('Team rosters failed',e)}
+  return extras;
+}
+
+async function checkApi(){
+  try{const r=await fetch(`${API}/health`,{signal:AbortSignal.timeout(2000)});if(r.ok)apiLive=true;}catch{}
+}
+
+function setupSearch(side){
+  const input=document.getElementById(`input${side}`);
+  const box=document.getElementById(`suggest${side}`);
   let timer;
-
-  input.addEventListener('input', () => {
+  input.addEventListener('input',()=>{
     clearTimeout(timer);
-    const q = input.value.trim();
-    if (q.length < 2) { box.style.display = 'none'; return; }
-    timer = setTimeout(() => fetchSuggestions(q, side), 250);
+    const q=input.value.trim();
+    if(q.length<2){box.style.display='none';return;}
+    timer=setTimeout(()=>fetchSuggestions(q,side),180);
   });
-
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Escape') box.style.display = 'none';
-    if (e.key === 'Enter') addPlayer(side);
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Escape')box.style.display='none';
+    if(e.key==='Enter')addPlayer(side);
   });
-
-  document.addEventListener('click', e => {
-    if (!input.contains(e.target) && !box.contains(e.target)) box.style.display = 'none';
+  document.addEventListener('click',e=>{
+    if(!input.contains(e.target)&&!box.contains(e.target))box.style.display='none';
   });
 }
 
-async function fetchSuggestions(q, side) {
-  const box = document.getElementById(`suggest${side}`);
-  let results = [];
-
-  if (apiLive) {
-    try {
-      const r = await fetch(`${API}/players/search?q=${encodeURIComponent(q)}`);
-      results = await r.json();
-    } catch { apiLive = false; }
+async function fetchSuggestions(q,side){
+  const box=document.getElementById(`suggest${side}`);
+  let results=[];
+  if(apiLive){
+    try{const r=await fetch(`${API}/players/search?q=${encodeURIComponent(q)}`);results=await r.json();}
+    catch{apiLive=false;}
   }
-
-  if (!results.length) {
-    // Search full NHL roster loaded from NHL public API
-    const ql = q.toLowerCase();
-    results = NHL_PLAYERS
-      .filter(p => p.name.toLowerCase().includes(ql))
-      .sort((a, b) => (b.points || 0) - (a.points || 0))  // sort by points so stars appear first
-      .slice(0, 10)
-      .map(p => ({ name: p.name, team: p.team, position: p.position }));
+  if(!results.length){
+    const ql=q.toLowerCase();
+    results=NHL_PLAYERS
+      .filter(p=>p.name.toLowerCase().includes(ql))
+      .sort((a,b)=>(b.points||0)-(a.points||0))
+      .slice(0,12);
   }
-
-  if (!results.length) { box.style.display = 'none'; return; }
-
-  box.innerHTML = results.map(r =>
-    `<div class="suggestion-item" onclick="selectPlayer('${side}','${r.name.replace(/'/g,"\\'")}')">
-      <span>${r.name}</span>
-      <span class="s-team">${r.team} · ${r.position || ''}</span>
-    </div>`
-  ).join('');
-  box.style.display = 'block';
+  if(!results.length){box.style.display='none';return;}
+  box.innerHTML=results.map(p=>{
+    const name=p.name||p.player_name||'';
+    const safeName=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const photo=p.id?`<img class="sug-photo" src="${playerPhoto(p.id)}" onerror="this.style.display='none'" alt=""/>`:'<div class="sug-photo"></div>';
+    return `<div class="suggestion-item" onclick="selectSuggestion('${side}','${safeName}')">
+      ${photo}
+      <div class="sug-info"><div class="sug-name">${name}</div><div class="sug-meta">${p.team||''} · ${p.position||''}</div></div>
+      <div class="sug-pts">${p.points!=null?p.points+' pts':''}</div>
+    </div>`;
+  }).join('');
+  box.style.display='block';
 }
 
-function selectPlayer(side, name) {
-  document.getElementById(`input${side}`).value = name;
-  document.getElementById(`suggest${side}`).style.display = 'none';
+function selectSuggestion(side,name){
+  document.getElementById(`input${side}`).value=name;
+  document.getElementById(`suggest${side}`).style.display='none';
   addPlayer(side);
 }
 
-// -- Add assets --
-async function addPlayer(side) {
-  const input = document.getElementById(`input${side}`);
-  const name  = input.value.trim();
-  if (!name) return;
-
-  const id = Date.now();
-  addLoadingCard(side, id, name);
-  input.value = '';
-  document.getElementById(`suggest${side}`).style.display = 'none';
-
-  let data;
-  if (apiLive) {
-    try {
-      const r = await fetch(`${API}/players/${encodeURIComponent(name)}/value`);
-      if (!r.ok) throw new Error('not found');
-      data = await r.json();
-    } catch { data = null; }
+async function addPlayer(side){
+  const input=document.getElementById(`input${side}`);
+  const name=input.value.trim();
+  if(!name)return;
+  input.value='';
+  document.getElementById(`suggest${side}`).style.display='none';
+  const id=Date.now();
+  addLoadingCard(side,id,name,'player');
+  let data=null;
+  if(apiLive){
+    try{const r=await fetch(`${API}/players/${encodeURIComponent(name)}/value`);if(r.ok)data=await r.json();}
+    catch{apiLive=false;}
   }
-
-  // Fallback — estimate from NHL roster data
-  if (!data) {
-    const match = NHL_PLAYERS.find(p => p.name.toLowerCase() === name.toLowerCase());
-    data = match ? estimateTradeValue(match) : null;
+  if(!data){
+    const m=NHL_PLAYERS.find(p=>p.name.toLowerCase()===name.toLowerCase())
+           ||NHL_PLAYERS.find(p=>p.name.toLowerCase().includes(name.toLowerCase()));
+    if(m)data=estimatePlayer(m);
   }
-
-  if (!data) {
-    updateCard(id, null, 'player', name);
-    return;
-  }
-
-  state[side].push({ type: 'player', id, data });
-  updateCard(id, data, 'player');
+  if(!data){renderError(id,name);return;}
+  state[side].push({type:'player',id,data});
+  renderPlayerCard(id,data);
   evaluateTrade();
 }
 
-function promptPick(side) {
-  const raw = prompt('Enter overall pick number (1-224):');
-  if (raw === null || raw.trim() === '') return;
-  const n = parseInt(raw.trim(), 10);
-  if (isNaN(n) || n < 1 || n > 224) {
-    alert('Please enter a number between 1 and 224');
-    return;
-  }
-  addPickAsset(side, n);
-}
-
-async function addPickAsset(side, overall) {
-  const id = Date.now();
-  addLoadingCard(side, id, `Pick #${overall}`);
-
-  let data;
-  if (apiLive) {
-    try {
-      const r = await fetch(`${API}/picks/value?overall=${overall}`);
-      data = await r.json();
-    } catch { data = null; }
-  }
-
-  if (!data) {
-    // Client-side exponential decay fallback
-    const expectedWar  = Math.max(0, 6.5 * Math.exp(-0.022 * overall) + 0.25);
-    const pImpact      = Math.max(0, Math.min(1, 0.68 * Math.exp(-0.016 * overall) + 0.07));
-    const valueScore   = parseFloat(((expectedWar / 6.75) * 10).toFixed(2));
-    data = { overall, expected_war: +expectedWar.toFixed(2), p_nhl_impact: +pImpact.toFixed(3), value_score: valueScore };
-  }
-
-  state[side].push({ type: 'pick', id, data });
-  updateCard(id, data, 'pick', `Pick #${overall}`);
+function addPickFromInputs(side){
+  const yearEl=document.getElementById(`pickYear${side}`);
+  const overallEl=document.getElementById(`pickOverall${side}`);
+  const year=parseInt(yearEl.value,10);
+  const overall=parseInt(overallEl.value,10);
+  if(isNaN(year)||year<2025||year>2035){yearEl.style.borderColor='var(--red)';setTimeout(()=>yearEl.style.borderColor='',1500);yearEl.focus();return;}
+  if(isNaN(overall)||overall<1||overall>224){overallEl.style.borderColor='var(--red)';setTimeout(()=>overallEl.style.borderColor='',1500);overallEl.focus();return;}
+  overallEl.value='';
+  const id=Date.now();
+  const data=calcPickValue(overall,year);
+  state[side].push({type:'pick',id,data});
+  addLoadingCard(side,id,`${year} Pick #${overall}`,'pick');
+  renderPickCard(id,data);
   evaluateTrade();
 }
 
-function addLoadingCard(side, id, name) {
-  const container = document.getElementById(`assets${side}`);
-  const empty = container.querySelector('.empty-state');
-  if (empty) empty.remove();
-
-  const el = document.createElement('div');
-  el.className = 'asset-card loading';
-  el.id = `card-${id}`;
-  el.innerHTML = `<div class="asset-top"><div class="asset-name">${name}</div><div class="asset-value">…</div></div>`;
-  container.appendChild(el);
+function calcPickValue(overall,year){
+  const ew=Math.max(0,6.5*Math.exp(-0.022*overall)+0.25);
+  const pi=Math.max(0,Math.min(1,0.68*Math.exp(-0.016*overall)+0.07));
+  const vs=parseFloat(((ew/6.75)*10).toFixed(1));
+  const rd=overall<=32?'1st':overall<=64?'2nd':overall<=96?'3rd':`${Math.ceil(overall/32)}th`;
+  return{overall,year,round_label:rd,expected_war:+ew.toFixed(2),p_nhl_impact:+pi.toFixed(3),value_score:vs};
 }
 
-function updateCard(id, data, type, fallbackName = '') {
-  const el = document.getElementById(`card-${id}`);
-  if (!el) return;
+function estimatePlayer(p){
+  const pp=p.gp>0?(p.points/p.gp)*82:0;
+  const isD=p.position==='D';
+  const war=+(isD?pp*0.045:pp*0.038).toFixed(2);
+  const tv=+Math.min(10,Math.max(0.5,war*1.4)).toFixed(1);
+  return{player_name:p.name,team:p.team,position:p.position,war_estimate:war,trade_value:tv,peak_war_proj:+(war*1.1).toFixed(2),points_pace:Math.round(pp),player_id:p.id,cap_hit:null,_estimated:true};
+}
 
-  if (!data) {
-    el.className = 'asset-card error';
-    el.innerHTML = `<div class="asset-top"><div class="asset-name" style="color:var(--red)">${fallbackName} — not found</div><button class="remove-btn" onclick="removeAsset(${id})">✕</button></div>`;
-    return;
-  }
+function addLoadingCard(side,id,name,type){
+  const c=document.getElementById(`assets${side}`);
+  c.querySelector('.empty-state')?.remove();
+  const el=document.createElement('div');
+  el.className=`asset-card ${type} loading`;
+  el.id=`card-${id}`;
+  el.innerHTML=`<div class="player-photo-placeholder">…</div><div class="asset-body"><div class="asset-name">${name}</div></div>`;
+  c.appendChild(el);
+}
 
-  el.className = `asset-card ${type}`;
-
-  if (type === 'player') {
-    const badge = contractBadge(data.contract_note);
-    const stageTxt = data.age_curve_stage ? ` · ${data.age_curve_stage}` : '';
-    const estNote  = data._estimated ? '<span style="font-size:10px;color:var(--muted);margin-left:6px;">est.</span>' : '';
-    el.innerHTML = `
-      <button class="remove-btn" onclick="removeAsset(${id})">✕</button>
+function renderPlayerCard(id,data){
+  const el=document.getElementById(`card-${id}`);
+  if(!el)return;
+  el.className='asset-card player';
+  const val=data.trade_value||0;
+  const vc=val>=9?'var(--green)':val>=6?'var(--blue)':val>=3?'var(--gold)':'var(--red)';
+  const photo=data.player_id
+    ?`<img class="player-photo" src="${playerPhoto(data.player_id)}" onerror="this.outerHTML='<div class=\\'player-photo-placeholder\\'>🏒</div>'" alt=""/>`
+    :'<div class="player-photo-placeholder">🏒</div>';
+  const cap=data.cap_hit?`<div class="cap-badge">💰 ${formatCap(data.cap_hit)}</div>`:'';
+  const est=data._estimated?'<span style="font-size:10px;color:var(--muted)"> est.</span>':'';
+  const pts=data.points_pace?`${data.points_pace} pts/82 · `:'';
+  el.innerHTML=`
+    <button class="remove-btn" onclick="removeAsset(${id})">✕</button>
+    ${photo}
+    <div class="asset-body">
       <div class="asset-top">
         <div>
-          <div class="asset-name">${data.player_name}${badge}${estNote}</div>
-          <div class="asset-meta">${data.position} · ${data.team}${stageTxt}</div>
+          <div class="asset-name">${data.player_name}${est}</div>
+          <div class="asset-meta">${data.position||''} · ${data.team||''}</div>
+          ${cap}
         </div>
-        <div class="asset-value">${data.trade_value}</div>
+        <div class="asset-value-wrap">
+          <div class="asset-value" style="color:${vc}">${val.toFixed(1)}</div>
+          <div class="asset-value-scale">/ 10</div>
+        </div>
       </div>
       <div class="asset-stats">
-        <div class="stat">WAR est <span>${data.war_estimate}</span></div>
-        <div class="stat">Peak WAR <span>${data.peak_war_proj}</span></div>
-        ${data.contract_efficiency ? `<div class="stat">Efficiency <span>${data.contract_efficiency}</span></div>` : ''}
-      </div>`;
-  } else {
-    el.innerHTML = `
-      <button class="remove-btn" onclick="removeAsset(${id})">✕</button>
+        <div class="stat">${pts}WAR <span>${data.war_estimate}</span></div>
+        <div class="stat">Peak <span>${data.peak_war_proj}</span></div>
+      </div>
+    </div>`;
+}
+
+function renderPickCard(id,data){
+  const el=document.getElementById(`card-${id}`);
+  if(!el)return;
+  el.className='asset-card pick';
+  const val=data.value_score||0;
+  el.innerHTML=`
+    <button class="remove-btn" onclick="removeAsset(${id})">✕</button>
+    <div class="pick-icon">${data.round_label||'?'}<br/><span style="font-size:11px">#${data.overall}</span></div>
+    <div class="asset-body">
       <div class="asset-top">
         <div>
-          <div class="asset-name">Pick #${data.overall}</div>
-          <div class="asset-meta">Expected WAR · ${(data.p_nhl_impact * 100).toFixed(0)}% P(NHL impact)</div>
+          <div class="asset-name">${data.year} ${data.round_label} Round</div>
+          <div class="asset-meta">Pick #${data.overall} · ${(data.p_nhl_impact*100).toFixed(0)}% NHL impact chance</div>
         </div>
-        <div class="asset-value" style="color:var(--green)">${data.value_score}</div>
+        <div class="asset-value-wrap">
+          <div class="asset-value" style="color:var(--green)">${val.toFixed(1)}</div>
+          <div class="asset-value-scale">/ 10</div>
+        </div>
       </div>
       <div class="asset-stats">
         <div class="stat">Exp WAR <span>${data.expected_war}</span></div>
         <div class="stat">P(impact) <span>${(data.p_nhl_impact*100).toFixed(0)}%</span></div>
-      </div>`;
-  }
+      </div>
+    </div>`;
 }
 
-function contractBadge(note) {
-  if (!note) return '';
-  const map = { ELC: 'badge-elc', standard: '', team_friendly: 'badge-team', overpaid: 'badge-over', UFA: '' };
-  const label = { ELC: 'ELC', team_friendly: 'Value', overpaid: 'Pricey' };
-  if (!label[note]) return '';
-  return `<span class="badge ${map[note]}">${label[note]}</span>`;
+function renderError(id,name){
+  const el=document.getElementById(`card-${id}`);
+  if(!el)return;
+  el.className='asset-card error';
+  el.innerHTML=`
+    <div class="player-photo-placeholder" style="color:var(--red)">✕</div>
+    <div class="asset-body">
+      <div class="asset-name" style="color:var(--red)">${name}</div>
+      <div class="asset-meta">Not found in 2024-25 season data</div>
+    </div>
+    <button class="remove-btn" style="opacity:1" onclick="removeAsset(${id})">✕</button>`;
 }
 
-function removeAsset(id) {
-  const el = document.getElementById(`card-${id}`);
-  if (el) el.remove();
-  state.A = state.A.filter(a => a.id !== id);
-  state.B = state.B.filter(a => a.id !== id);
-
-  ['A','B'].forEach(s => {
-    const c = document.getElementById(`assets${s}`);
-    if (!c.querySelector('.asset-card')) {
-      c.innerHTML = '<div class="empty-state">Add players or picks below</div>';
-    }
+function removeAsset(id){
+  document.getElementById(`card-${id}`)?.remove();
+  state.A=state.A.filter(a=>a.id!==id);
+  state.B=state.B.filter(a=>a.id!==id);
+  ['A','B'].forEach(s=>{
+    const c=document.getElementById(`assets${s}`);
+    if(!c.querySelector('.asset-card'))c.innerHTML='<div class="empty-state">Add players or picks below</div>';
   });
   evaluateTrade();
 }
 
-// -- Trade evaluation --
-function evaluateTrade() {
-  const totalA = state.A.reduce((s, a) => s + getValue(a), 0);
-  const totalB = state.B.reduce((s, a) => s + getValue(a), 0);
-  const teamA  = document.getElementById('teamA').value || 'Team A';
-  const teamB  = document.getElementById('teamB').value || 'Team B';
-
-  document.getElementById('totalA').textContent = totalA.toFixed(1);
-  document.getElementById('totalB').textContent = totalB.toFixed(1);
-
-  if (!state.A.length && !state.B.length) {
-    document.getElementById('verdict').style.display = 'none';
+function evaluateTrade(){
+  const tA=state.A.reduce((s,a)=>s+gv(a),0);
+  const tB=state.B.reduce((s,a)=>s+gv(a),0);
+  document.getElementById('totalA').textContent=tA.toFixed(1);
+  document.getElementById('totalB').textContent=tB.toFixed(1);
+  if(!state.A.length&&!state.B.length){
+    document.getElementById('verdictLabel').textContent='Add assets to evaluate';
+    document.getElementById('verdictLabel').className='verdict-label even';
+    document.getElementById('scoreA').textContent='—';
+    document.getElementById('scoreB').textContent='—';
+    document.getElementById('barA').style.width='0%';
+    document.getElementById('barB').style.width='0%';
+    ['mDiff','mWinNow','mFuture','mCap'].forEach(id=>document.getElementById(id).textContent='—');
     return;
   }
-
-  document.getElementById('verdict').style.display = 'block';
-
-  const total    = totalA + totalB || 1;
-  const barA_pct = (totalA / total) * 50;
-  const barB_pct = (totalB / total) * 50;
-
-  document.getElementById('barA').style.width = barA_pct + '%';
-  document.getElementById('barB').style.width = barB_pct + '%';
-  document.getElementById('scoreA').textContent = totalA.toFixed(1);
-  document.getElementById('scoreB').textContent = totalB.toFixed(1);
-  document.getElementById('labelA').textContent = teamA;
-  document.getElementById('labelB').textContent = teamB;
-  document.getElementById('barLabelA').textContent = teamA;
-  document.getElementById('barLabelB').textContent = teamB;
-
-  const diff   = Math.abs(totalA - totalB);
-  const winner = diff < 0.5 ? 'Even' : totalA > totalB ? teamA : teamB;
-  const label  = diff < 0.5 ? 'Even trade'
-               : diff < 1.5 ? `${winner} slight edge`
-               : diff < 3.0 ? `${winner} wins`
-               : `${winner} wins decisively`;
-
-  const verdictEl = document.getElementById('verdictLabel');
-  verdictEl.textContent = label;
-  verdictEl.className   = `verdict-label ${diff < 0.5 ? 'even' : 'winner'}`;
-
-  // Win-now vs future
-  const winNowA  = state.A.filter(a=>a.type==='player').reduce((s,a)=>s+(a.data.war_estimate||0),0);
-  const winNowB  = state.B.filter(a=>a.type==='player').reduce((s,a)=>s+(a.data.war_estimate||0),0);
-  const futureA  = state.A.reduce((s,a)=>s+(a.type==='player'?(a.data.peak_war_proj||0):(a.data.expected_war||0)),0);
-  const futureB  = state.B.reduce((s,a)=>s+(a.type==='player'?(a.data.peak_war_proj||0):(a.data.expected_war||0)),0);
-
-  const winNowWinner = Math.abs(winNowA-winNowB)<0.3?'Even':winNowA>winNowB?teamA:teamB;
-  const futureWinner = Math.abs(futureA-futureB)<0.3?'Even':futureA>futureB?teamA:teamB;
-
-  document.getElementById('mDiff').textContent    = diff.toFixed(1);
-  document.getElementById('mWinNow').textContent  = winNowWinner;
-  document.getElementById('mFuture').textContent  = futureWinner;
-  document.getElementById('mCap').textContent     = '—';
+  const nA=selectedA?.name||'Team A',nB=selectedB?.name||'Team B';
+  document.getElementById('scoreA').textContent=tA.toFixed(1);
+  document.getElementById('scoreB').textContent=tB.toFixed(1);
+  document.getElementById('scoreLabelA').textContent=selectedA?.abbr||'A';
+  document.getElementById('scoreLabelB').textContent=selectedB?.abbr||'B';
+  document.getElementById('barLabelA').textContent=nA;
+  document.getElementById('barLabelB').textContent=nB;
+  const tot=tA+tB||1;
+  document.getElementById('barA').style.width=((tA/tot)*50)+'%';
+  document.getElementById('barB').style.width=((tB/tot)*50)+'%';
+  const diff=Math.abs(tA-tB);
+  const winner=diff<0.5?'Even':tA>tB?nA:nB;
+  const label=diff<0.5?'Even trade':diff<1.5?`${winner} slight edge`:diff<3?`${winner} wins`:`${winner} wins decisively`;
+  document.getElementById('verdictLabel').textContent=label;
+  document.getElementById('verdictLabel').className=`verdict-label ${diff<0.5?'even':'winner'}`;
+  const wnA=state.A.filter(a=>a.type==='player').reduce((s,a)=>s+(a.data.war_estimate||0),0);
+  const wnB=state.B.filter(a=>a.type==='player').reduce((s,a)=>s+(a.data.war_estimate||0),0);
+  const fA=state.A.reduce((s,a)=>s+(a.type==='player'?(a.data.peak_war_proj||0):(a.data.expected_war||0)),0);
+  const fB=state.B.reduce((s,a)=>s+(a.type==='player'?(a.data.peak_war_proj||0):(a.data.expected_war||0)),0);
+  const capA=state.A.filter(a=>a.type==='player').reduce((s,a)=>s+(a.data.cap_hit||0),0);
+  const aAbbr=selectedA?.abbr||'A',bAbbr=selectedB?.abbr||'B';
+  document.getElementById('mDiff').textContent=diff.toFixed(1);
+  document.getElementById('mWinNow').textContent=Math.abs(wnA-wnB)<0.3?'Even':wnA>wnB?aAbbr:bAbbr;
+  document.getElementById('mFuture').textContent=Math.abs(fA-fB)<0.3?'Even':fA>fB?aAbbr:bAbbr;
+  document.getElementById('mCap').textContent=capA>0?formatCap(capA):'—';
 }
 
-function getValue(asset) {
-  if (asset.type === 'player') return asset.data.trade_value || 0;
-  return asset.data.value_score || 0;
-}
-
-// Setup
-setupSearch('A');
-setupSearch('B');
-
-document.getElementById('teamA').addEventListener('input', evaluateTrade);
-document.getElementById('teamB').addEventListener('input', evaluateTrade);
+function gv(a){return a.type==='player'?(a.data.trade_value||0):(a.data.value_score||0);}
 </script>
 </body>
 </html>
