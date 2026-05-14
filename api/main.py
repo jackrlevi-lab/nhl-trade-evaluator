@@ -21,12 +21,12 @@ import logging
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from nhl_trade_evaluator.data.database import get_session, PlayerSeason, PlayerContract, PlayerWAR, PlayerValuation
-from nhl_trade_evaluator.models.pick_value import PickValueModel
-from nhl_trade_evaluator.models.player_valuation import PlayerValuationModel
-from nhl_trade_evaluator.models.trade_evaluator import (
+from data.database import get_session, PlayerSeason, PlayerContract, PlayerWAR, PlayerValuation
+from models.pick_value import PickValueModel
+from models.player_valuation import PlayerValuationModel
+from models.trade_evaluator import (
     TradeAsset, TradeSide, TradeVerdict, PickValue, PlayerValuationResult
 )
 

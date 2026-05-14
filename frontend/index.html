@@ -338,15 +338,68 @@
 const API = 'http://localhost:8000';
 let apiLive = false;
 
-// Demo data for when API is offline
-const DEMO_PLAYERS = {
-  'adam fox':      { player_name:'Adam Fox',      team:'NYR', position:'D', age:27, war_estimate:3.8, contract_efficiency:0.40, trade_value:8.4, peak_war_proj:4.1, age_curve_stage:'peak',       contract_note:'standard' },
-  'nathan mackinnon': { player_name:'Nathan MacKinnon', team:'COL', position:'C', age:28, war_estimate:6.1, contract_efficiency:0.70, trade_value:9.8, peak_war_proj:6.3, age_curve_stage:'peak', contract_note:'team_friendly' },
-  'cale makar':    { player_name:'Cale Makar',    team:'COL', position:'D', age:25, war_estimate:5.4, contract_efficiency:0.65, trade_value:9.6, peak_war_proj:5.9, age_curve_stage:'peak',       contract_note:'team_friendly' },
-  'auston matthews': { player_name:'Auston Matthews', team:'TOR', position:'C', age:26, war_estimate:5.2, contract_efficiency:0.49, trade_value:9.1, peak_war_proj:5.5, age_curve_stage:'peak',   contract_note:'standard' },
-  'quinn hughes':  { player_name:'Quinn Hughes',  team:'VAN', position:'D', age:24, war_estimate:4.8, contract_efficiency:0.60, trade_value:9.3, peak_war_proj:5.6, age_curve_stage:'ascending',  contract_note:'team_friendly' },
-  'quentin musty': { player_name:'Quentin Musty', team:'SJS', position:'L', age:20, war_estimate:0.8, contract_efficiency:2.10, trade_value:3.2, peak_war_proj:3.5, age_curve_stage:'ascending',  contract_note:'ELC' },
-};
+// Full NHL roster — loaded from NHL public API on startup
+let NHL_PLAYERS = [];   // [{ name, team, position, id }]
+let rosterLoaded = false;
+
+async function loadNHLRoster() {
+  try {
+    // NHL public API — no key required
+    const r = await fetch('https://api.nhle.com/stats/rest/en/skater/summary?limit=-1&cayenneExp=seasonId=20242025%20and%20gameTypeId=2', {
+      signal: AbortSignal.timeout(8000)
+    });
+    const data = await r.json();
+    NHL_PLAYERS = (data.data || []).map(p => ({
+      name:     p.skaterFullName,
+      team:     p.teamAbbrevs || '',
+      position: p.positionCode,
+      gp:       p.gamesPlayed || 0,
+      goals:    p.goals || 0,
+      assists:  p.assists || 0,
+      points:   p.points || 0,
+      id:       p.playerId,
+    }));
+    rosterLoaded = true;
+    console.log(`Loaded ${NHL_PLAYERS.length} NHL players`);
+  } catch(e) {
+    console.warn('NHL roster load failed, using fallback', e);
+    // Minimal fallback so app doesn't break completely
+    NHL_PLAYERS = [
+      { name:'Nathan MacKinnon', team:'COL', position:'C', gp:82, points:120 },
+      { name:'Connor McDavid',   team:'EDM', position:'C', gp:82, points:132 },
+      { name:'Cale Makar',       team:'COL', position:'D', gp:80, points:90  },
+      { name:'Adam Fox',         team:'NYR', position:'D', gp:78, points:75  },
+      { name:'Auston Matthews',  team:'TOR', position:'C', gp:81, points:98  },
+      { name:'Quinn Hughes',     team:'VAN', position:'D', gp:82, points:92  },
+      { name:'David Pastrnak',   team:'BOS', position:'R', gp:82, points:95  },
+      { name:'Leon Draisaitl',   team:'EDM', position:'C', gp:80, points:102 },
+      { name:'Jack Hughes',      team:'NJD', position:'C', gp:78, points:99  },
+      { name:'Jack Drury',       team:'CAR', position:'C', gp:72, points:48  },
+    ];
+  }
+}
+
+// Estimate trade value client-side from NHL stats when API offline
+function estimateTradeValue(player) {
+  const ptsPer82 = player.gp > 0 ? (player.points / player.gp) * 82 : 0;
+  const isD = player.position === 'D';
+  // Rough WAR estimate: points pace adjusted for position
+  const warEst   = isD ? ptsPer82 * 0.045 : ptsPer82 * 0.038;
+  const tradeVal = Math.min(10, Math.max(0.5, warEst * 1.4));
+  return {
+    player_name:         player.name,
+    team:                player.team,
+    position:            player.position,
+    age:                 null,
+    war_estimate:        +warEst.toFixed(2),
+    contract_efficiency: null,
+    trade_value:         +tradeVal.toFixed(1),
+    peak_war_proj:       +(warEst * 1.1).toFixed(2),
+    age_curve_stage:     null,
+    contract_note:       null,
+    _estimated:          true,   // flag so UI can note it's an estimate
+  };
+}
 
 const state = { A: [], B: [] };
 
@@ -359,6 +412,9 @@ async function checkApi() {
     }
   } catch { apiLive = false; }
 }
+
+// Load roster immediately — don't wait for API check
+loadNHLRoster();
 checkApi();
 
 // -- Search autocomplete --
@@ -396,18 +452,21 @@ async function fetchSuggestions(q, side) {
   }
 
   if (!results.length) {
-    // Demo fallback
-    results = Object.values(DEMO_PLAYERS)
-      .filter(p => p.player_name.toLowerCase().includes(q.toLowerCase()))
-      .map(p => ({ name: p.player_name, team: p.team }));
+    // Search full NHL roster loaded from NHL public API
+    const ql = q.toLowerCase();
+    results = NHL_PLAYERS
+      .filter(p => p.name.toLowerCase().includes(ql))
+      .sort((a, b) => (b.points || 0) - (a.points || 0))  // sort by points so stars appear first
+      .slice(0, 10)
+      .map(p => ({ name: p.name, team: p.team, position: p.position }));
   }
 
   if (!results.length) { box.style.display = 'none'; return; }
 
   box.innerHTML = results.map(r =>
-    `<div class="suggestion-item" onclick="selectPlayer('${side}','${r.name}')">
+    `<div class="suggestion-item" onclick="selectPlayer('${side}','${r.name.replace(/'/g,"\\'")}')">
       <span>${r.name}</span>
-      <span class="s-team">${r.team}</span>
+      <span class="s-team">${r.team} · ${r.position || ''}</span>
     </div>`
   ).join('');
   box.style.display = 'block';
@@ -439,9 +498,10 @@ async function addPlayer(side) {
     } catch { data = null; }
   }
 
-  // Demo fallback
+  // Fallback — estimate from NHL roster data
   if (!data) {
-    data = DEMO_PLAYERS[name.toLowerCase()] || null;
+    const match = NHL_PLAYERS.find(p => p.name.toLowerCase() === name.toLowerCase());
+    data = match ? estimateTradeValue(match) : null;
   }
 
   if (!data) {
@@ -455,10 +515,13 @@ async function addPlayer(side) {
 }
 
 function promptPick(side) {
-  const overall = prompt('Enter overall pick number (1-224):');
-  if (!overall || isNaN(overall)) return;
-  const n = parseInt(overall);
-  if (n < 1 || n > 224) { alert('Pick must be between 1 and 224'); return; }
+  const raw = prompt('Enter overall pick number (1-224):');
+  if (raw === null || raw.trim() === '') return;
+  const n = parseInt(raw.trim(), 10);
+  if (isNaN(n) || n < 1 || n > 224) {
+    alert('Please enter a number between 1 and 224');
+    return;
+  }
   addPickAsset(side, n);
 }
 
@@ -514,19 +577,20 @@ function updateCard(id, data, type, fallbackName = '') {
   if (type === 'player') {
     const badge = contractBadge(data.contract_note);
     const stageTxt = data.age_curve_stage ? ` · ${data.age_curve_stage}` : '';
+    const estNote  = data._estimated ? '<span style="font-size:10px;color:var(--muted);margin-left:6px;">est.</span>' : '';
     el.innerHTML = `
       <button class="remove-btn" onclick="removeAsset(${id})">✕</button>
       <div class="asset-top">
         <div>
-          <div class="asset-name">${data.player_name}${badge}</div>
-          <div class="asset-meta">${data.position} · Age ${data.age} · ${data.team}${stageTxt}</div>
+          <div class="asset-name">${data.player_name}${badge}${estNote}</div>
+          <div class="asset-meta">${data.position} · ${data.team}${stageTxt}</div>
         </div>
         <div class="asset-value">${data.trade_value}</div>
       </div>
       <div class="asset-stats">
         <div class="stat">WAR est <span>${data.war_estimate}</span></div>
         <div class="stat">Peak WAR <span>${data.peak_war_proj}</span></div>
-        <div class="stat">Efficiency <span>${data.contract_efficiency}</span></div>
+        ${data.contract_efficiency ? `<div class="stat">Efficiency <span>${data.contract_efficiency}</span></div>` : ''}
       </div>`;
   } else {
     el.innerHTML = `
